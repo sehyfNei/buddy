@@ -1,6 +1,6 @@
 # Buddy Reader — Work In Progress
 
-> Last updated: 2026-02-13
+> Last updated: 2026-02-13 (end of session 2)
 
 ---
 
@@ -14,15 +14,16 @@ Stack: **Python (FastAPI) + HTML/CSS/JS + PDF.js** — no Node, no npm, no build
 
 ---
 
-## Project Structure (Complete)
+## Project Structure
 
 ```
 bUDDY/
 ├── soul.md                     # Project philosophy
-├── app.py                      # Main entry point — starts FastAPI server
-├── requirements.txt            # 6 Python dependencies
-├── config.yaml                 # Model config (provider, model, endpoint, params)
-├── WIP.md                      # This file
+├── app.py                      # Main entry — FastAPI server + startup/shutdown hooks
+├── requirements.txt            # 6 Python dependencies (no new ones since v1)
+├── config.yaml                 # Model + reader + buddy + knowledge config
+├── WIP.md                      # This file — session continuity
+├── ARCHITECTURE-v1.5-knowledge-graph.md  # Full v1.5 design doc
 │
 ├── buddy/
 │   ├── core/
@@ -42,86 +43,66 @@ bUDDY/
 │   │   └── session.py          # Reading session state (page, highlights)
 │   │
 │   ├── memory/
-│   │   ├── session_memory.py   # In-memory chat history (v1 compat)
+│   │   ├── session_memory.py   # In-memory chat history (v1 compat, still used for fast access)
 │   │   └── session_store.py    # SQLite-backed persistent sessions (v1.5)
 │   │
 │   ├── knowledge/              # v1.5 Knowledge Graph
-│   │   ├── graph.py            # SQLite node/edge graph (concepts, claims, signals)
+│   │   ├── graph.py            # SQLite node/edge graph — thread-safe with Lock
 │   │   ├── extractor.py        # LLM-powered concept + claim extraction
 │   │   ├── retriever.py        # Context bundle assembly from graph
 │   │   └── updater.py          # Incremental graph updates from signals
 │   │
 │   └── api/
-│       └── routes.py           # All FastAPI endpoints (v1 + v1.5 graph-enriched)
+│       └── routes.py           # All endpoints (v1 + v1.5 graph-enriched)
 │
 ├── frontend/
-│   ├── index.html              # Main reader UI
-│   ├── style.css               # Dark theme styling
-│   └── app.js                  # PDF rendering, signal capture, chat, state polling
+│   ├── index.html              # Main reader UI (with concepts bar)
+│   ├── style.css               # Dark theme + concept chips styling
+│   └── app.js                  # PDF rendering, signal capture, chat, concepts, state polling
 │
-├── data/                       # v1.5 persistent storage (gitignored)
+├── data/                       # Persistent storage (gitignored, created at runtime)
 │   ├── graph.db                # Knowledge graph (concepts, claims, edges)
 │   └── sessions.db             # Chat history, state episodes
 │
 └── tests/
-    ├── test_state_detector.py  # 10 tests — all passing
-    └── test_knowledge_graph.py # 21 tests — all passing
+    ├── test_state_detector.py  # 10 tests
+    └── test_knowledge_graph.py # 21 tests
 ```
 
 ---
 
-## What's Done (v1 Implementation)
+## What's Complete
 
-### Step 1: Project Skeleton + Config — DONE
-- [x] All folders and `__init__.py` files created
-- [x] `requirements.txt` with 6 dependencies (fastapi, uvicorn, python-multipart, pymupdf, pyyaml, httpx)
-- [x] `config.yaml` with LLM provider/model/endpoint settings + reader + buddy config
-- [x] Dependencies installed and verified
+### v1 — Core Reader + Buddy (all 6 steps done)
+- PDF upload + rendering via PDF.js
+- Reading signal capture (page views, scroll-backs, selections, idle)
+- Rule-based state detection (FOCUSED/STUCK/TIRED/IDLE)
+- Mode routing + tone-controlled LLM prompts
+- Modular LLM (Ollama/vLLM/OpenAI-compat, config-driven)
+- Buddy chat panel with proactive interventions
+- 10 state detector tests passing
 
-### Step 2: PDF Reader (Body) — DONE
-- [x] `pdf_handler.py` — extracts text from PDF using PyMuPDF (from file path or bytes)
-- [x] `session.py` — tracks reading session state (current page, highlights, document)
-- [x] Frontend renders PDFs using PDF.js (loaded from CDN)
-- [x] Upload PDF via file picker → rendered in canvas
-- [x] Page navigation (prev/next buttons + arrow keys)
+### v1.5 M1 — Schema + Ingestion + Persistence (done)
+- SQLite knowledge graph (nodes: document, page_chunk, concept, claim, signal, annotation)
+- Edges: mentions, depends_on, explains, supports, confused_at, annotated
+- LLM-powered concept + claim extraction on PDF upload (background task)
+- Persistent sessions, chat messages, state episodes in sessions.db
+- Thread-safe SQLite with `threading.Lock` on all operations
+- 21 graph tests passing
 
-### Step 3: LLM Module (Modular Engine) — DONE
-- [x] `base.py` — abstract `LLMProvider` with `generate()` and `health_check()`
-- [x] `ollama_provider.py` — calls Ollama `/api/chat` endpoint
-- [x] `vllm_provider.py` — calls vLLM OpenAI-compatible endpoint
-- [x] `openai_compat.py` — generic OpenAI-compatible provider (LM Studio, LocalAI, etc.)
-- [x] Provider selection driven by `config.yaml` — swap models without touching code
+### v1.5 M2 — Retrieval-in-Chat Integration (done)
+- `/api/chat` and `/api/state` use graph-enriched context bundles
+- Context bundle: passage + concepts + prerequisites + claims + confusion history
+- 3 new endpoints: `/api/concepts`, `/api/concepts/page/{n}`, `/api/sessions`
+- Chat responses include related concepts
 
-### Step 4: Reading Signals + State Detection — DONE
-- [x] `signals.py` — collects events: page_view, scroll_back, selection, idle, page_skip
-- [x] `state_detector.py` — rule-based heuristics classify user state:
-  - Re-read same page 2+ times → **STUCK**
-  - Long idle (>90s) → **TIRED**
-  - Medium idle (>30s) → **IDLE**
-  - Fast page skipping (3+ pages) → **STUCK**
-  - Long time on page + scroll backs → **STUCK**
-  - Normal reading → **FOCUSED** (Buddy stays quiet)
-- [x] Frontend sends signals to `/api/signal` endpoint
-- [x] 10 unit tests — all passing
-
-### Step 5: Mode Router + Tone Controller — DONE
-- [x] `mode_router.py` — maps states to response modes:
-  - STUCK → EXPLAIN (simplify, break down, analogies)
-  - TIRED → NUDGE (short, warm, suggest break)
-  - IDLE → CHECK_IN (gentle "still there?")
-  - FOCUSED → SILENT (don't interrupt)
-- [x] `tone_controller.py` — builds system/user prompts per mode with appropriate tone
-
-### Step 6: Buddy Panel Integration (Body + Soul) — DONE
-- [x] `/api/state` endpoint — aggregates signals → detects state → generates intervention
-- [x] `/api/chat` endpoint — direct conversation with Buddy about the document
-- [x] `/api/health` endpoint — checks if LLM is reachable
-- [x] Frontend polls `/api/state` every 5 seconds
-- [x] Buddy panel shows proactive messages when struggle detected
-- [x] Buddy stays quiet when user is FOCUSED
-- [x] Intervention cooldown (60s default) prevents spamming
-- [x] Chat input for direct questions about the reading material
-- [x] Health indicator dot (green = LLM connected, red = disconnected)
+### Bug fixes applied (session 2)
+- Architecture doc updated from "PLANNING" to reflect actual implementation status
+- Config knobs `extract_on_upload` and `max_concepts_per_page` wired into runtime
+- Frontend concepts bar fetches + displays page concepts with prereq indicators
+- `threading.Lock` on all SQLite ops in graph.py and session_store.py
+- State episode logging deduplicated (only on state change or 30s gap)
+- Graceful `shutdown` event closes all DB connections
 
 ---
 
@@ -129,13 +110,16 @@ bUDDY/
 
 | Method | Route | Purpose |
 |--------|-------|---------|
-| POST | `/api/upload` | Upload a PDF file, start new session |
-| GET | `/api/page/{n}` | Get extracted text for page n |
-| POST | `/api/signal` | Receive a reading behavior event |
-| GET | `/api/state` | Get current detected state + optional intervention |
-| POST | `/api/chat` | Send a message to Buddy, get response |
-| GET | `/api/health` | Check server + LLM connectivity |
-| POST | `/api/highlight` | Save a text highlight |
+| POST | `/api/upload` | Upload PDF, start session, trigger background extraction |
+| GET | `/api/page/{n}` | Get page text + concepts from graph |
+| POST | `/api/signal` | Receive reading behavior event |
+| GET | `/api/state` | Detected state + optional intervention (deduped logging) |
+| POST | `/api/chat` | Chat with Buddy (graph-enriched context) |
+| GET | `/api/health` | Server + LLM + graph status |
+| POST | `/api/highlight` | Save highlight + boost graph concept weights |
+| GET | `/api/concepts` | All concepts for current document |
+| GET | `/api/concepts/page/{n}` | Concepts + prereqs + claims + confusion for page |
+| GET | `/api/sessions` | Past sessions + struggle summary for document |
 
 ---
 
@@ -155,109 +139,79 @@ python app.py
 
 ---
 
-## v1.5 — Knowledge Graph
+## Where to Pick Up Next (Prioritized)
 
-Full architecture document: **[ARCHITECTURE-v1.5-knowledge-graph.md](ARCHITECTURE-v1.5-knowledge-graph.md)**
+### 1. End-to-end test with real PDF + Ollama (HIGH — never verified)
+The full loop has never been tested live. Upload a PDF, read a few pages, trigger STUCK detection, verify Buddy responds with graph-enriched context. This should happen before adding more features.
 
-**Summary:** Local SQLite-backed concept graph giving Buddy understanding of document content — prerequisite chains, concept relationships, and personalized confusion history across sessions.
+### 2. M3 remainder: Stuck Assist + Summaries
+- [ ] **"Stuck Assist" flow** — when STUCK detected, look up prereq chain for current page concepts, generate targeted help that addresses the root confusion (not just the current passage)
+- [ ] **Precomputed section summaries** — at upload time, generate short summaries per section/chapter for "where am I?" context
+- [ ] **"Where am I?" endpoint** — `/api/summary/page/{n}` returning section context + progress
 
-**Design decisions (resolved):**
-- Graph granularity: **Concepts + Claims** (both extracted)
-- Edge generation: **Pure LLM** (all relationships inferred by model)
-- Storage: **Split** — graph.db + sessions.db (different lifecycles)
-- Precompute: Upload-time bulk extraction + incremental during reading
-- Explainability: Hidden by default
+### 3. M4: UI panels
+- [ ] **Concept sidebar** (collapsed by default) — full concept map for document
+- [ ] **"Stuck Assist" button** — manual trigger in Buddy panel
+- [ ] **Memory timeline** — visual history of struggle points + resolved concepts
 
-### M1: Schema + Ingestion + Persistence — DONE
-- [x] `buddy/knowledge/graph.py` — SQLite node/edge schema with full CRUD
-- [x] `buddy/knowledge/extractor.py` — LLM-powered concept + claim + relationship extraction
-- [x] `buddy/knowledge/retriever.py` — context bundle assembly (concepts, prereqs, claims, confusion history)
-- [x] `buddy/knowledge/updater.py` — incremental updates (stuck signals, highlights, re-reads, questions)
-- [x] `buddy/memory/session_store.py` — persistent sessions, chat messages, state episodes
-- [x] API routes updated — graph-enriched context for `/api/chat` and `/api/state`
-- [x] Background extraction on PDF upload
-- [x] 3 new endpoints: `/api/concepts`, `/api/concepts/page/{n}`, `/api/sessions`
-- [x] `config.yaml` updated with `knowledge:` section
-- [x] 21 new tests — all passing (31 total)
-- [x] No new dependencies (SQLite is stdlib)
+### 4. Remaining v1 polish
+- [ ] **Vendor PDF.js locally** — currently CDN-loaded, not fully offline/local-first
+- [ ] **Text selection highlighting** — visual persistence of selections
+- [ ] **Highlights/Notes panels** — view and manage saved annotations
+- [ ] **Page skip detection** — track multi-page jumps as signals
+- [ ] **Reading speed calculation** — populate `reading_speed_wpm` field
+- [ ] **Streaming LLM responses** — stream to UI instead of waiting for full response
 
-### M2: Retrieval-in-Chat Integration — DONE (wired in M1)
-- [x] `/api/chat` uses graph-enriched context bundles
-- [x] `/api/state` interventions reference concepts + prereqs + confusion history
-- [x] Context bundle includes: passage, concepts, prerequisites, claims, confusion history
-- [x] Chat response includes related concepts
-
-### M3: Proactive Summaries + Stuck Assist — PARTIAL
-- [x] `confused_at` edges created on STUCK detection
-- [x] Updater tracks re-reads, highlights, questions
-- [ ] "Stuck Assist" flow (prereq chain lookup → targeted help prompt)
-- [ ] Precomputed section summaries at upload time
-- [ ] "Where am I?" summary endpoint
-
-### M4: UI + Tuning + Metrics — NOT STARTED
-- [ ] Concept sidebar in frontend (collapsed by default)
-- [ ] "Stuck Assist" button in Buddy panel
-- [ ] Memory timeline panel
-- [ ] Eval scripts for retrieval relevance + noise rate
-- [ ] Extraction prompt tuning
+### 5. Longer-term
+- [ ] Multiple sessions / document switching
+- [ ] File browser for local PDF selection
+- [ ] Configurable detection thresholds in config.yaml
+- [ ] Eval scripts for retrieval quality + noise rate
+- [ ] ML-based state detection (replace heuristics)
+- [ ] Multi-user support
 
 ---
 
-## What's NOT Done Yet (Future Work)
+## Design Decisions (Resolved)
 
-### High Priority — Next Steps
-- [ ] **Test end-to-end with a real PDF + running Ollama** — verify the full loop works
-- [ ] **PDF.js vendored locally** — currently loaded from CDN, plan says vendor it in `frontend/lib/pdfjs/`
-- [ ] **Text selection highlighting** — frontend captures selections but no visual persistence
-- [ ] **Highlights panel** — UI to view saved highlights
-- [ ] **Notes panel** — save and view notes alongside reading
-- [ ] **Better page skip detection** — track when user jumps multiple pages at once
-- [ ] **Reading speed calculation** — `reading_speed_wpm` field exists but isn't populated
-
-### Medium Priority — Enhancements
-- [ ] **Persistent memory** — save session/conversation to disk (currently in-memory only, lost on restart)
-- [ ] **Multiple sessions** — support switching between documents
-- [ ] **File browser** — select PDFs from local filesystem instead of upload-only
-- [ ] **Terminal/file access** — subprocess execution for deeper OS integration (like OpenClaw)
-- [ ] **Streaming responses** — stream LLM output to UI instead of waiting for full response
-- [ ] **Better signal aggregation** — time-windowed analysis instead of cumulative
-- [ ] **Configurable thresholds** — expose state detection thresholds in config.yaml
-
-### Low Priority — Polish
-- [ ] **Responsive design** — mobile/tablet layout
-- [ ] **Dark/light theme toggle**
-- [ ] **PDF search** — find text within the document
-- [ ] **PDF zoom controls**
-- [ ] **Export highlights/notes** to file
-- [ ] **ML-based state detection** — replace rule-based heuristics with a trained model
-- [ ] **Multi-user support** — session management for multiple concurrent users
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Single-user | Yes (v1) | Simplicity. Globals + single session. |
+| State detection | Rule-based heuristics | No ML needed yet. Easy to tune thresholds. |
+| PDF.js | CDN (not vendored) | Faster setup. Should vendor for offline. |
+| Graph granularity | Concepts + Claims | Both extracted by LLM at upload time. |
+| Edge generation | Pure LLM | All relationships inferred by model, no heuristic fallback. |
+| Storage | Split (graph.db + sessions.db) | Different lifecycles — graph persists, sessions can be pruned. |
+| Threading | Lock per DB instance | Protects against background extraction + request handler overlap. |
+| Episode dedup | 30s min gap + state change | Prevents poll-inflated struggle counts. |
+| Intervention cooldown | 60s configurable | Buddy doesn't spam. |
+| FOCUSED = SILENT | Always | The most important rule. |
 
 ---
 
-## Key Design Decisions Made
+## Config Reference
 
-1. **Single-user v1** — no auth, no multi-session. One user, one document at a time.
-2. **Rule-based detection** — no ML for state detection in v1. Simple thresholds that are easy to tune.
-3. **PDF.js from CDN** — faster to get running; should be vendored for offline use later.
-4. **In-memory everything** — no database, no file persistence. Restart = clean slate.
-5. **Cooldown on interventions** — Buddy won't spam. 60-second minimum between proactive messages.
-6. **FOCUSED = SILENT** — the most important rule. Buddy never interrupts flow state.
-7. **Config-driven LLM** — change provider/model in `config.yaml`, no code changes needed.
+```yaml
+llm:
+  provider: ollama              # ollama | vllm | openai_compat
+  model: llama3.2:3b
+  endpoint: http://localhost:11434
+  temperature: 0.7
+  max_tokens: 512
 
----
+reader:
+  max_upload_mb: 50
+  signals_interval_ms: 5000
 
-## Dependencies
+buddy:
+  quiet_when_focused: true
+  intervention_cooldown_s: 60
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| fastapi | >=0.104.0 | Web framework |
-| uvicorn | >=0.24.0 | ASGI server |
-| python-multipart | >=0.0.6 | File upload support |
-| pymupdf | >=1.23.0 | PDF text extraction |
-| pyyaml | >=6.0 | Config file loading |
-| httpx | >=0.25.0 | Async HTTP client for LLM APIs |
-
-All free. All open source. No API keys needed.
+knowledge:
+  data_dir: data
+  extract_on_upload: true       # gates background concept extraction
+  max_concepts_per_page: 10     # caps extractor output per page
+```
 
 ---
 
@@ -268,3 +222,16 @@ tests/test_state_detector.py  — 10/10 PASSED  (state detection heuristics)
 tests/test_knowledge_graph.py — 21/21 PASSED  (graph CRUD, queries, retriever, updater)
 Total: 31/31 PASSED
 ```
+
+---
+
+## Git History
+
+| Commit | What |
+|--------|------|
+| `4ba5878` | Initial commit: full v1 implementation (27 files) |
+| `c6a76f9` | v1.5 architecture plan document |
+| `c24be44` | v1.5 M1/M2: knowledge graph, extraction, retrieval, persistence |
+| `39b024e` | Fix 6 critical gaps: docs, config, frontend, threading, dedup, shutdown |
+
+Remote: `https://github.com/sehyfNei/buddy.git` (branch: `main`)
