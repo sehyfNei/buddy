@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buddy Reader</title>
+    <link rel="stylesheet" href="/frontend/style.css">
+</head>
+<body>
+    <!-- Top Bar -->
+    <header id="topbar">
+        <div class="topbar-left">
+            <label id="upload-btn" class="btn" for="file-input">Open PDF</label>
+            <input type="file" id="file-input" accept=".pdf" hidden>
+            <span id="filename">No file loaded</span>
+        </div>
+        <div class="topbar-right">
+            <span class="brand">Buddy Reader</span>
+            <span id="health-dot" class="health-dot offline" title="LLM disconnected"></span>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="content">
+        <!-- PDF Viewer -->
+        <section id="pdf-panel">
+            <div id="pdf-container">
+                <canvas id="pdf-canvas"></canvas>
+                <div id="empty-state">
+                    <p>Open a PDF to start reading</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Buddy Panel -->
+        <aside id="buddy-panel">
+            <div id="buddy-header">
+                <span class="buddy-icon">&#129504;</span> <!-- 🧠 -->
+                <span>Buddy</span>
+                <span id="buddy-state" class="state-badge">idle</span>
+            </div>
+            <div id="buddy-messages">
+                <div class="buddy-message system">
+                    Hi! I'm Buddy, your reading companion. Open a PDF and I'll be here if you need help.
+                </div>
+            </div>
+            <div id="buddy-input-area">
+                <input type="text" id="chat-input" placeholder="Ask Buddy about what you're reading..." disabled>
+                <button id="send-btn" class="btn" disabled>Send</button>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Bottom Bar -->
+    <footer id="bottombar">
+        <div class="nav-controls">
+            <button id="prev-btn" class="btn nav-btn" disabled>&#9664; Prev</button>
+            <span id="page-info">Page 0 of 0</span>
+            <button id="next-btn" class="btn nav-btn" disabled>Next &#9654;</button>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs" type="module"></script>
+    <script src="/frontend/app.js" type="module"></script>
+</body>
+</html>

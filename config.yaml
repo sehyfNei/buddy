@@ -1,0 +1,14 @@
+llm:
+  provider: ollama            # "ollama", "vllm", or "openai_compat"
+  model: llama3.2:3b          # any model name your provider supports
+  endpoint: http://localhost:11434
+  temperature: 0.7
+  max_tokens: 512
+
+reader:
+  max_upload_mb: 50           # max PDF file size
+  signals_interval_ms: 5000   # how often frontend sends reading signals
+
+buddy:
+  quiet_when_focused: true    # don't interrupt when user is reading steadily
+  intervention_cooldown_s: 60 # minimum seconds between proactive messages
