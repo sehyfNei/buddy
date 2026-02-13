@@ -1,7 +1,8 @@
 # Buddy v1.5 — Memory Map / Knowledge Graph
 
-> Status: **PLANNING** — not yet implemented
+> Status: **M1/M2 IMPLEMENTED** — M3 partial, M4 not started
 > Created: 2026-02-13
+> Last updated: 2026-02-13
 > Depends on: v1 (complete)
 
 ---
@@ -355,33 +356,33 @@ This is the core value proposition — Buddy doesn't just simplify, it knows *wh
 
 ## Milestone Roadmap
 
-### M1 — Schema + Ingestion + Persistence (Week 1)
+### M1 — Schema + Ingestion + Persistence (Week 1) — DONE
 
-- [ ] Create `buddy/knowledge/` module with `graph.py`
-- [ ] Implement SQLite schema (nodes + edges tables)
-- [ ] Build concept extractor (LLM prompt + heuristic fallback)
-- [ ] Wire into upload flow: PDF upload → chunk → extract → store
-- [ ] Add `data/` directory with `graph.db` + `sessions.db`
-- [ ] Persist chat messages and state episodes to `sessions.db`
-- [ ] Migrate `session_memory.py` from in-memory to SQLite-backed
+- [x] Create `buddy/knowledge/` module with `graph.py`
+- [x] Implement SQLite schema (nodes + edges tables)
+- [x] Build concept extractor (LLM-powered, concepts + claims)
+- [x] Wire into upload flow: PDF upload → chunk → extract → store
+- [x] Add `data/` directory with `graph.db` + `sessions.db`
+- [x] Persist chat messages and state episodes to `sessions.db`
+- [x] Add `session_store.py` with SQLite-backed persistence
 
-### M2 — Retrieval-in-Chat Integration (Week 2)
+### M2 — Retrieval-in-Chat Integration (Week 2) — DONE
 
-- [ ] Build `retriever.py` — context bundle assembly from graph
-- [ ] Update `/api/chat` to use graph-enriched context
-- [ ] Update `/api/state` interventions to reference concepts
-- [ ] Add concept-aware system prompts to `tone_controller.py`
-- [ ] Verify latency stays under 150ms for graph queries
+- [x] Build `retriever.py` — context bundle assembly from graph
+- [x] Update `/api/chat` to use graph-enriched context
+- [x] Update `/api/state` interventions to reference concepts
+- [x] Add 3 new endpoints: `/api/concepts`, `/api/concepts/page/{n}`, `/api/sessions`
+- [ ] Verify latency stays under 150ms for graph queries (not benchmarked yet)
 
-### M3 — Proactive Summaries + Stuck Assist (Week 3)
+### M3 — Proactive Summaries + Stuck Assist (Week 3) — PARTIAL
 
-- [ ] Build `updater.py` — incremental graph updates from signals
-- [ ] Add `confused_at` edge creation on STUCK detection
+- [x] Build `updater.py` — incremental graph updates from signals
+- [x] Add `confused_at` edge creation on STUCK detection
 - [ ] Implement "Stuck Assist" flow (prereq chain lookup → targeted help)
 - [ ] Precompute section summaries at upload time
 - [ ] Add "where am I?" summary to state response
 
-### M4 — UI + Tuning + Metrics (Week 4)
+### M4 — UI + Tuning + Metrics (Week 4) — NOT STARTED
 
 - [ ] Add concept sidebar to frontend (collapsed by default)
 - [ ] Add "Stuck Assist" button in Buddy panel

@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-from buddy.api.routes import router, load_config, init_llm, init_knowledge
+from buddy.api.routes import router, load_config, init_llm, init_knowledge, shutdown_knowledge
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 
@@ -52,6 +52,14 @@ async def startup():
             "LLM not reachable. Buddy will work but can't generate responses. "
             "Start your model server (e.g. 'ollama serve') and reload."
         )
+
+
+# ── Shutdown ────────────────────────────────────────────────────────────────
+
+@app.on_event("shutdown")
+async def shutdown():
+    shutdown_knowledge()
+    logger.info("Buddy Reader shut down.")
 
 
 # ── Run ──────────────────────────────────────────────────────────────────────

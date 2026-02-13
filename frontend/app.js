@@ -18,6 +18,9 @@ const messagesEl = document.getElementById("buddy-messages");
 const stateEl = document.getElementById("buddy-state");
 const healthDot = document.getElementById("health-dot");
 
+const conceptsToggle = document.getElementById("concepts-toggle");
+const conceptsList = document.getElementById("concepts-list");
+
 const ctx = canvas.getContext("2d");
 
 // ── State ───────────────────────────────────────────────────────────────────
@@ -94,6 +97,9 @@ async function renderPage(pageNum) {
 
     // Signal page view to backend
     sendSignal("page_view", pageNum);
+
+    // Fetch concepts for this page from knowledge graph
+    fetchPageConcepts(pageNum);
 }
 
 function updateNavigation() {
@@ -239,6 +245,39 @@ function addMessage(type, text) {
     messagesEl.appendChild(div);
     messagesEl.scrollTop = messagesEl.scrollHeight;
 }
+
+// ── Concepts Display ────────────────────────────────────────────────────────
+
+async function fetchPageConcepts(pageNum) {
+    try {
+        const resp = await fetch(`/api/concepts/page/${pageNum}`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+
+        conceptsList.innerHTML = "";
+        const allConcepts = [...(data.concepts || []), ...(data.prerequisites || []).map(p => ({...p, isPrereq: true}))];
+
+        if (allConcepts.length === 0) {
+            conceptsToggle.textContent = "No concepts extracted yet";
+            return;
+        }
+
+        conceptsToggle.textContent = `Concepts on this page (${data.concepts?.length || 0})`;
+
+        for (const c of allConcepts) {
+            const chip = document.createElement("span");
+            chip.className = "concept-chip";
+            if (c.isPrereq) chip.style.borderLeft = "2px solid var(--yellow)";
+            chip.textContent = c.name;
+            chip.title = c.definition || (c.isPrereq ? "Prerequisite concept" : "");
+            conceptsList.appendChild(chip);
+        }
+    } catch {}
+}
+
+conceptsToggle.addEventListener("click", () => {
+    conceptsList.classList.toggle("hidden");
+});
 
 // ── Health Check ────────────────────────────────────────────────────────────
 

@@ -80,9 +80,10 @@ class ExtractionResult:
 class ConceptExtractor:
     """Extracts concepts, claims, and relationships from text using an LLM."""
 
-    def __init__(self, llm: LLMProvider, graph: KnowledgeGraph):
+    def __init__(self, llm: LLMProvider, graph: KnowledgeGraph, max_concepts_per_page: int = 10):
         self.llm = llm
         self.graph = graph
+        self.max_concepts_per_page = max_concepts_per_page
 
     async def extract_from_page(self, doc_id: str, page: int, text: str) -> ExtractionResult:
         """Extract concepts and claims from a single page's text."""
@@ -112,9 +113,9 @@ class ConceptExtractor:
         if not parsed:
             return result
 
-        # Store concepts
+        # Store concepts (capped by max_concepts_per_page)
         concept_map: dict[str, str] = {}  # name → node_id
-        for c in parsed.get("concepts", []):
+        for c in parsed.get("concepts", [])[:self.max_concepts_per_page]:
             name = c.get("name", "").strip()
             if not name:
                 continue

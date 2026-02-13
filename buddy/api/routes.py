@@ -49,6 +49,10 @@ _updater: GraphUpdater | None = None
 _session_store: SessionStore | None = None
 _doc_id: str = ""  # current document ID in graph
 _extraction_in_progress: bool = False
+_last_logged_state: str = ""     # dedup: last state logged as episode
+_last_logged_page: int = 0       # dedup: last page logged
+_last_logged_time: float = 0.0   # dedup: timestamp of last episode log
+_EPISODE_MIN_GAP_S: float = 30.0 # minimum seconds between same-state episode logs
 
 
 def load_config(config_path: str = "config.yaml") -> dict:
@@ -93,11 +97,22 @@ def init_knowledge(config: dict) -> None:
     _session_store = SessionStore(db_path=f"{data_dir}/sessions.db")
 
     if _llm:
-        _extractor = ConceptExtractor(llm=_llm, graph=_graph)
+        max_concepts = config.get("knowledge", {}).get("max_concepts_per_page", 10)
+        _extractor = ConceptExtractor(llm=_llm, graph=_graph, max_concepts_per_page=max_concepts)
     _retriever = GraphRetriever(graph=_graph)
     _updater = GraphUpdater(graph=_graph)
 
     logger.info("Knowledge graph and session store initialized")
+
+
+def shutdown_knowledge() -> None:
+    """Close database connections gracefully."""
+    if _graph:
+        _graph.close()
+        logger.info("Knowledge graph closed")
+    if _session_store:
+        _session_store.close()
+        logger.info("Session store closed")
 
 
 # ── Request/Response models ────────────────────────────────────────────────
@@ -180,9 +195,10 @@ async def upload_pdf(file: UploadFile = File(...), background_tasks: BackgroundT
 
     logger.info("New session %s: %s (%d pages)", session_id, doc.filename, doc.total_pages)
 
-    # Start background concept extraction
+    # Start background concept extraction (controlled by config)
     extracting = False
-    if _extractor and background_tasks:
+    extract_on_upload = _config.get("knowledge", {}).get("extract_on_upload", True)
+    if extract_on_upload and _extractor and background_tasks:
         pages = [{"page": p.page_num, "text": p.text} for p in doc.pages]
         background_tasks.add_task(_run_extraction, _doc_id, pages)
         extracting = True
@@ -238,22 +254,26 @@ async def receive_signal(req: SignalRequest) -> dict:
 
 @router.get("/state")
 async def get_state() -> StateResponse:
-    global _last_intervention_time
+    global _last_intervention_time, _last_logged_state, _last_logged_page, _last_logged_time
 
     signals = _signals.aggregate()
     state = _detector.detect(signals)
     decision = _mode_router.route(state)
 
-    # Record state episode
-    if _session_store and _session and state != UserState.FOCUSED:
-        _session_store.add_episode(
-            _session.session_id, state.value,
-            _session.current_page if _session else 0,
-        )
+    # Record state episode (deduplicated: only on state change or after min gap)
+    now = time.time()
+    page = _session.current_page if _session else 0
+    state_changed = (state.value != _last_logged_state or page != _last_logged_page)
+    gap_elapsed = (now - _last_logged_time) >= _EPISODE_MIN_GAP_S
 
-    # Record stuck/tired in graph
-    if _updater and _doc_id and state in (UserState.STUCK, UserState.TIRED):
-        page = _session.current_page if _session else 0
+    if _session_store and _session and state != UserState.FOCUSED and (state_changed or gap_elapsed):
+        _session_store.add_episode(_session.session_id, state.value, page)
+        _last_logged_state = state.value
+        _last_logged_page = page
+        _last_logged_time = now
+
+    # Record stuck/tired in graph (also deduplicated via same check)
+    if _updater and _doc_id and state in (UserState.STUCK, UserState.TIRED) and (state_changed or gap_elapsed):
         _updater.record_stuck(_doc_id, page, state)
 
     message = None

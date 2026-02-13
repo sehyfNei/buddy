@@ -172,6 +172,59 @@ html, body {
 }
 
 .state-badge.stuck { background: var(--red); color: #fff; }
+.state-badge.idle { background: var(--surface2); color: var(--text-muted); }
+
+/* ── Concepts Bar ────────────────────────────────────── */
+
+#concepts-bar {
+    border-bottom: 1px solid var(--border);
+}
+
+.concepts-toggle {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    padding: 6px 16px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.concepts-toggle:hover {
+    color: var(--text);
+    background: rgba(255,255,255,0.03);
+}
+
+.concepts-list {
+    padding: 4px 12px 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.concepts-list.hidden {
+    display: none;
+}
+
+.concept-chip {
+    font-size: 0.72rem;
+    padding: 3px 10px;
+    border-radius: 12px;
+    background: var(--surface2);
+    color: var(--text-muted);
+    cursor: default;
+    position: relative;
+}
+
+.concept-chip:hover {
+    background: var(--accent);
+    color: #fff;
+}
+
+.concept-chip[title] {
+    cursor: help;
+}
 .state-badge.tired { background: var(--yellow); color: #000; }
 .state-badge.focused { background: var(--green); color: #000; }
 
