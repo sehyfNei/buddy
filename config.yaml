@@ -12,3 +12,8 @@ reader:
 buddy:
   quiet_when_focused: true    # don't interrupt when user is reading steadily
   intervention_cooldown_s: 60 # minimum seconds between proactive messages
+
+knowledge:
+  data_dir: data              # where graph.db and sessions.db are stored
+  extract_on_upload: true     # run concept extraction when PDF is uploaded
+  max_concepts_per_page: 10   # limit concepts extracted per page

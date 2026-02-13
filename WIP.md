@@ -42,18 +42,30 @@ bUDDY/
 │   │   └── session.py          # Reading session state (page, highlights)
 │   │
 │   ├── memory/
-│   │   └── session_memory.py   # In-memory chat history (not persistent)
+│   │   ├── session_memory.py   # In-memory chat history (v1 compat)
+│   │   └── session_store.py    # SQLite-backed persistent sessions (v1.5)
+│   │
+│   ├── knowledge/              # v1.5 Knowledge Graph
+│   │   ├── graph.py            # SQLite node/edge graph (concepts, claims, signals)
+│   │   ├── extractor.py        # LLM-powered concept + claim extraction
+│   │   ├── retriever.py        # Context bundle assembly from graph
+│   │   └── updater.py          # Incremental graph updates from signals
 │   │
 │   └── api/
-│       └── routes.py           # All FastAPI endpoints
+│       └── routes.py           # All FastAPI endpoints (v1 + v1.5 graph-enriched)
 │
 ├── frontend/
 │   ├── index.html              # Main reader UI
 │   ├── style.css               # Dark theme styling
 │   └── app.js                  # PDF rendering, signal capture, chat, state polling
 │
+├── data/                       # v1.5 persistent storage (gitignored)
+│   ├── graph.db                # Knowledge graph (concepts, claims, edges)
+│   └── sessions.db             # Chat history, state episodes
+│
 └── tests/
-    └── test_state_detector.py  # 10 tests — all passing
+    ├── test_state_detector.py  # 10 tests — all passing
+    └── test_knowledge_graph.py # 21 tests — all passing
 ```
 
 ---
@@ -143,24 +155,51 @@ python app.py
 
 ---
 
-## v1.5 — Knowledge Graph (PLANNED, NOT STARTED)
+## v1.5 — Knowledge Graph
 
 Full architecture document: **[ARCHITECTURE-v1.5-knowledge-graph.md](ARCHITECTURE-v1.5-knowledge-graph.md)**
 
-**Summary:** Add a local SQLite-backed concept graph that gives Buddy actual understanding of document content — prerequisite chains, concept relationships, and personalized confusion history across sessions.
+**Summary:** Local SQLite-backed concept graph giving Buddy understanding of document content — prerequisite chains, concept relationships, and personalized confusion history across sessions.
 
-**Key milestones:**
-- M1: Schema + ingestion + persistence
-- M2: Retrieval-in-chat integration
-- M3: Proactive summaries + stuck assist
-- M4: UI concept panel + tuning + metrics
+**Design decisions (resolved):**
+- Graph granularity: **Concepts + Claims** (both extracted)
+- Edge generation: **Pure LLM** (all relationships inferred by model)
+- Storage: **Split** — graph.db + sessions.db (different lifecycles)
+- Precompute: Upload-time bulk extraction + incremental during reading
+- Explainability: Hidden by default
 
-**Open decisions to resolve before starting:**
-- Graph granularity (concept-only vs claims too)
-- Edge generation method (hybrid heuristic+LLM recommended)
-- Precompute timing (upload-time + incremental recommended)
-- Storage split (graph.db + sessions.db recommended)
-- Explainability visibility (hidden by default recommended)
+### M1: Schema + Ingestion + Persistence — DONE
+- [x] `buddy/knowledge/graph.py` — SQLite node/edge schema with full CRUD
+- [x] `buddy/knowledge/extractor.py` — LLM-powered concept + claim + relationship extraction
+- [x] `buddy/knowledge/retriever.py` — context bundle assembly (concepts, prereqs, claims, confusion history)
+- [x] `buddy/knowledge/updater.py` — incremental updates (stuck signals, highlights, re-reads, questions)
+- [x] `buddy/memory/session_store.py` — persistent sessions, chat messages, state episodes
+- [x] API routes updated — graph-enriched context for `/api/chat` and `/api/state`
+- [x] Background extraction on PDF upload
+- [x] 3 new endpoints: `/api/concepts`, `/api/concepts/page/{n}`, `/api/sessions`
+- [x] `config.yaml` updated with `knowledge:` section
+- [x] 21 new tests — all passing (31 total)
+- [x] No new dependencies (SQLite is stdlib)
+
+### M2: Retrieval-in-Chat Integration — DONE (wired in M1)
+- [x] `/api/chat` uses graph-enriched context bundles
+- [x] `/api/state` interventions reference concepts + prereqs + confusion history
+- [x] Context bundle includes: passage, concepts, prerequisites, claims, confusion history
+- [x] Chat response includes related concepts
+
+### M3: Proactive Summaries + Stuck Assist — PARTIAL
+- [x] `confused_at` edges created on STUCK detection
+- [x] Updater tracks re-reads, highlights, questions
+- [ ] "Stuck Assist" flow (prereq chain lookup → targeted help prompt)
+- [ ] Precomputed section summaries at upload time
+- [ ] "Where am I?" summary endpoint
+
+### M4: UI + Tuning + Metrics — NOT STARTED
+- [ ] Concept sidebar in frontend (collapsed by default)
+- [ ] "Stuck Assist" button in Buddy panel
+- [ ] Memory timeline panel
+- [ ] Eval scripts for retrieval relevance + noise rate
+- [ ] Extraction prompt tuning
 
 ---
 
@@ -225,7 +264,7 @@ All free. All open source. No API keys needed.
 ## Test Status
 
 ```
-tests/test_state_detector.py — 10/10 PASSED
+tests/test_state_detector.py  — 10/10 PASSED  (state detection heuristics)
+tests/test_knowledge_graph.py — 21/21 PASSED  (graph CRUD, queries, retriever, updater)
+Total: 31/31 PASSED
 ```
-
-Tests cover: focused reading, re-read detection, scroll-back + re-read combo, long page time, page skipping, long idle (tired), medium idle, short idle, empty signals, priority ordering (stuck > idle).

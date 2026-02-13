@@ -9,3 +9,4 @@ build/
 *.pdf
 .vscode/
 .idea/
+data/*.db

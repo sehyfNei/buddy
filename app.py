@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-from buddy.api.routes import router, load_config, init_llm
+from buddy.api.routes import router, load_config, init_llm, init_knowledge
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 
@@ -42,6 +42,7 @@ async def index():
 async def startup():
     config = load_config()
     llm = init_llm(config)
+    init_knowledge(config)
 
     ok = await llm.health_check()
     if ok:
