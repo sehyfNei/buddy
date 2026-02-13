@@ -143,6 +143,27 @@ python app.py
 
 ---
 
+## v1.5 — Knowledge Graph (PLANNED, NOT STARTED)
+
+Full architecture document: **[ARCHITECTURE-v1.5-knowledge-graph.md](ARCHITECTURE-v1.5-knowledge-graph.md)**
+
+**Summary:** Add a local SQLite-backed concept graph that gives Buddy actual understanding of document content — prerequisite chains, concept relationships, and personalized confusion history across sessions.
+
+**Key milestones:**
+- M1: Schema + ingestion + persistence
+- M2: Retrieval-in-chat integration
+- M3: Proactive summaries + stuck assist
+- M4: UI concept panel + tuning + metrics
+
+**Open decisions to resolve before starting:**
+- Graph granularity (concept-only vs claims too)
+- Edge generation method (hybrid heuristic+LLM recommended)
+- Precompute timing (upload-time + incremental recommended)
+- Storage split (graph.db + sessions.db recommended)
+- Explainability visibility (hidden by default recommended)
+
+---
+
 ## What's NOT Done Yet (Future Work)
 
 ### High Priority — Next Steps
